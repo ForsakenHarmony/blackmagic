@@ -29,6 +29,7 @@
 #include "target.h"
 #include "adiv5.h"
 #include "jtag_devs.h"
+#include "riscv.h"
 
 struct jtag_dev_s jtag_devs[JTAG_MAX_DEVS+1];
 int jtag_dev_count;
