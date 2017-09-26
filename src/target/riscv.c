@@ -64,9 +64,7 @@ static uint64_t riscv_dtm_low_access(struct riscv_dtm *dtm, uint64_t dbus)
 {
 	uint64_t ret = 0;
 retry:
-	DEBUG("out %"PRIx64"\n", dbus);
 	jtag_dev_shift_dr(dtm->dev, (void*)&ret, (const void*)&dbus, 36 + dtm->abits);
-	DEBUG("in %"PRIx64"\n", ret);
 	switch (ret & 3) {
 	case 3:
 		riscv_dtm_reset(dtm);
@@ -101,6 +99,34 @@ static uint64_t riscv_dtm_read(struct riscv_dtm *dtm, uint32_t addr)
 {
 	riscv_dtm_low_access(dtm, ((uint64_t)addr << 36) | RISCV_DBUS_READ);
 	return riscv_dtm_low_access(dtm, RISCV_DBUS_NOP);
+}
+static uint32_t riscv_debug_ram_exec(struct riscv_dtm *dtm,
+                                     const uint32_t code[], int count)
+{
+	int i;
+	for (i = 0; i < count - 1; i++) {
+		riscv_dtm_write(dtm, i, code[i]);
+	}
+	riscv_dtm_write(dtm, i, code[i] | RISCV_DMCONTROL_INTERRUPT);
+	uint64_t ret;
+	do {
+		ret = riscv_dtm_read(dtm, count);
+	} while (ret & RISCV_DMCONTROL_INTERRUPT);
+	return ret;
+}
+
+static uint32_t riscv_mem_read32(struct riscv_dtm *dtm, uint32_t addr)
+{
+	/* Debug RAM stub
+	 * 400:   41002403   lw   s0, 0x410(zero)
+	 * 404:   00042483   lw   s1, 0(s0)
+	 * 408:   40902a23   sw   s1, 0x414(zero)
+	 * 40c:   3f80006f   j    0 <resume>
+	 * 410:              dw   addr
+	 * 414:              dw   data
+	 */
+	uint32_t ram[] = {0x41002403, 0x42483, 0x40902a23, 0x3f80006f, addr};
+	return riscv_debug_ram_exec(dtm, ram, 5);
 }
 
 void riscv_jtag_handler(jtag_dev_t *dev)
@@ -153,4 +179,8 @@ void riscv_jtag_handler(jtag_dev_t *dev)
 	riscv_dtm_write(dtm, 1, 0xdeadbeef);
 	DEBUG("%"PRIx32"\n", (uint32_t)riscv_dtm_read(dtm, 0));
 	DEBUG("%"PRIx32"\n", (uint32_t)riscv_dtm_read(dtm, 1));
+
+	for (int i = 0; i < dramsize + 1; i++) {
+		DEBUG("DebugRAM[%d] = %08"PRIx32"\n", i, riscv_mem_read32(dtm, 0x400 + i*4));
+	}
 }
