@@ -274,8 +274,8 @@ static void riscv_mem_write(target *t, target_addr dest, const void *src, size_t
 
 static void riscv_reset(target *t)
 {
-	(void)t;
-	DEBUG("RISC-V reset not implemented!\n");
+	DEBUG("Resetting!\n");
+	riscv_csreg_write(t->priv, RISCV_DCSR, 1 << 29);
 }
 
 bool riscv_check_error(target *t)
