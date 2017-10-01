@@ -192,21 +192,6 @@ static uint32_t riscv_debug_ram_exec(struct riscv_dtm *dtm,
 	return ram_stub_result(dtm, count);
 }
 
-static void riscv_mem_write32(struct riscv_dtm *dtm,
-                              uint32_t addr, uint32_t val)
-{
-	/* Debug RAM stub
-	 * 400:   41002403   lw   s0, 0x410(zero)
-	 * 408:   41402483   lw   s1, 0x414(zero)
-	 * 404:   00942023   sw   s1, 0(s0)
-	 * 40c:   3f80006f   j    0 <resume>
-	 * 410:              dw   addr
-	 * 414:              dw   data
-	 */
-	uint32_t ram[] = {0x41002403, 0x41402483, 0x942023, 0x3f80006f, addr, val};
-	riscv_debug_ram_exec(dtm, ram, 5);
-}
-
 static uint32_t riscv_gpreg_read(struct riscv_dtm *dtm, uint8_t reg)
 {
 	/* Debug RAM stub
@@ -336,14 +321,48 @@ static void riscv_mem_read(target *t, void *dest, target_addr src, size_t len)
 
 static void riscv_mem_write(target *t, target_addr dest, const void *src, size_t len)
 {
-	const uint32_t *s = src;
-	assert((dest & 3) == 0);
-	assert((len & 3) == 0);
-	while (len) {
-		riscv_mem_write32(t->priv, dest, *s++);
-		dest += 4;
-		len -= 4;
+	struct riscv_dtm *dtm = t->priv;
+	int size;
+	uint32_t store;
+	bool first = false;
+	switch ((dest | len) & 3) {
+	case 0:
+		store = SW(S1, 0, T0);
+		size = 4;
+		break;
+	case 2:
+		store = SH(S1, 0, T0);
+		size = 2;
+		break;
+	case 1:
+	case 3:
+		store = SB(S1, 0, T0);
+		size = 1;
+		break;
 	}
+	uint32_t t0 = riscv_gpreg_read(dtm, T0);
+	ram_stub_write(dtm, 0, LW(T0, 0x410, 0), false);
+	ram_stub_write(dtm, 1, LW(S1, 0x414, 0), false);
+	ram_stub_write(dtm, 2, store, false);
+	ram_stub_write(dtm, 3, JRESUME(3), false);
+	ram_stub_write(dtm, 4, dest, false);
+	while (len) {
+		uint32_t r = 0;
+		switch (size) {
+		case 1: r = *(uint8_t*)src;  break;
+		case 2: r = *(uint16_t*)src; break;
+		case 4: r = *(uint32_t*)src; break;
+		}
+		ram_stub_write(dtm, 5, r, true);
+		ram_stub_result(dtm, 5);
+		len -= size;
+		src += size;
+		if (first) {
+			ram_stub_write(dtm, 0, ADDI(T0, T0, size), false);
+			first = false;
+		}
+	}
+	riscv_gpreg_write(dtm, T0, t0);
 }
 
 static void riscv_reset(target *t)
