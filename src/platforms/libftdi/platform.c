@@ -89,6 +89,14 @@ cable_desc_t cable_desc[] = {
 		.name = "ftdiswd"
 	},
 	{
+		.vendor = 0x0403,
+		.product = 0x6010,
+		.interface = INTERFACE_A,
+		.dbus_data = 0x08,
+		.dbus_ddr  = 0x1B,
+		.name = "hifive1"
+	},
+	{
 		.vendor = 0x15b1,
 		.product = 0x0003,
 		.interface = INTERFACE_A,
