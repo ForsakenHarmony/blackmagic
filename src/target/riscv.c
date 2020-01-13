@@ -119,7 +119,7 @@ static void riscv_dtm_reset(struct riscv_dtm *dtm)
 	jtag_dev_write_ir(dtm->dev, IR_DTMCONTROL);
 	uint32_t dtmcontrol = DTMCONTROL_DBUSRESET;
 	jtag_dev_shift_dr(dtm->dev, (void*)&dtmcontrol, (void*)&dtmcontrol, 32);
-	DEBUG("after dbusreset: dtmcontrol = 0x%08x\n", dtmcontrol);
+	DEBUG("after dbusreset: dtmcontrol = 0x%08lx\n", dtmcontrol);
 }
 
 static uint64_t riscv_dtm_low_access(struct riscv_dtm *dtm, uint64_t dbus)
@@ -206,7 +206,7 @@ static uint32_t riscv_gpreg_read(struct riscv_dtm *dtm, uint8_t reg)
 	uint32_t ram[] = {0x40002423, 0x4000006f};
 	ram[0] |= reg << 20;
 	uint32_t val = riscv_debug_ram_exec(dtm, ram, 2);
-	DEBUG("x%d = 0x%x\n", reg, val);
+	DEBUG("x%d = 0x%lx\n", reg, val);
 	return val;
 }
 
@@ -221,7 +221,7 @@ static uint32_t riscv_csreg_read(struct riscv_dtm *dtm, uint16_t csr)
 	uint32_t ram[] = {0x00002473, 0x40802623, 0x3fc0006f};
 	ram[0] |= (uint32_t)csr << 20;
 	uint32_t val = riscv_debug_ram_exec(dtm, ram, 3);
-	DEBUG("CSR(%03x) = 0x%x\n", csr, val);
+	DEBUG("CSR(%03x) = 0x%lx\n", csr, val);
 	return val;
 }
 
@@ -494,7 +494,7 @@ void riscv_jtag_handler(jtag_dev_t *dev)
 	DEBUG("Scanning RISC-V target! %p\n", dev);
 	jtag_dev_write_ir(dev, IR_DTMCONTROL);
 	jtag_dev_shift_dr(dev, (void*)&dtmcontrol, (void*)&dtmcontrol, 32);
-	DEBUG("dtmcontrol = 0x%08x\n", dtmcontrol);
+	DEBUG("dtmcontrol = 0x%08lx\n", dtmcontrol);
 	uint8_t version = dtmcontrol & 0xf;
 
 	if (version > 0)
@@ -508,7 +508,7 @@ void riscv_jtag_handler(jtag_dev_t *dev)
 	dtm->idle = (dtmcontrol >> 10) & 7;
 	DEBUG("abits = %d\n", dtm->abits);
 	DEBUG("idle = %d\n", dtm->idle);
-	DEBUG("dbusstat = %d\n", (dtmcontrol >> 8) & 3);
+	DEBUG("dbusstat = %ld\n", (dtmcontrol >> 8) & 3);
 	riscv_dtm_reset(dtm);
 
 	jtag_dev_write_ir(dev, IR_DBUS);
